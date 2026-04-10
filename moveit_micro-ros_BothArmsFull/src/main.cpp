@@ -45,3 +45,6 @@ void set_microros_transports() {
 #error "No transport defined"
 #endif
 }
+
+#include "../moveit_micro-ros.ino"
+
