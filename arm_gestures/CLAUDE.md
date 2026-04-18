@@ -246,9 +246,14 @@ struct Gesture {
 
 ### How interpolation works
 - `updateGesture()` called every loop tick (non-blocking, millis-based)
-- Uses **ease-out-quart**: `e = 1 - (1-t)^4` — fast start, smooth deceleration
+- Uses **cubic Hermite spline** with **Catmull-Rom tangents** — velocity-continuous through all keyframes
 - `g_frameStart[]` is snapshotted at the START of each keyframe (from current `g_jointTargets`)
-- Interpolates from `g_frameStart` to `frame.joints` over `frame.duration_ms`
+- `computeTangents()` is called in `startGesture()` to pre-compute tangents for all keyframes:
+  - `g_tangents[0]` = 0 (starts from rest)
+  - `g_tangents[n]` = 0 (ends at rest)
+  - Interior tangents: `0.5 * (incoming_slope + outgoing_slope)` — Catmull-Rom rule
+- Cubic Hermite formula per joint: `p(t) = h00*p0 + h10*dt*v0 + h01*p1 + h11*dt*v1`
+- This matches MoveIt2-style trajectory behavior: arm flows smoothly **through** each checkpoint without stopping
 - On keyframe completion, advances to next frame or sets `GESTURE_IDLE`
 
 ### Current gestures (PLACEHOLDER ANGLES — need tuning)

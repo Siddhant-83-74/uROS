@@ -12,7 +12,7 @@ Keyboard controls:
     r/f  = Joint 3  (L elbow)           up/down
     t/g  = Joint 4  (L forearm RMCS)    up/down
     y/h  = Joint 5  (L wrist servo)     up/down
-    u/j  = Joint 6  (R shoulder pitch)  up/down
+    u/j  = Joint 6  (R shoulder pitch)  up/     
     i/k  = Joint 7  (R shoulder roll)   up/down
     o/l  = Joint 8  (R bicep)           up/down
     p/;  = Joint 9  (R elbow)           up/down

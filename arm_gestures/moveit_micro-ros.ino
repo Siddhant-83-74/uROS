@@ -1,7 +1,6 @@
 #include "CubeMarsServoDual.h"
 #include <Wire.h>
-#include "RMCS-220X_Right.h"
-#include "RMCS-220X_Left.h"
+#include "RMCS220xTeensy.h"
 #include <Servo.h>
 #include <stdio.h>
 #include <rcl/rcl.h>
@@ -40,13 +39,12 @@ CubeMarsCAN<CAN1> leftBus;
 CubeMarsCAN<CAN3> rightBus;
 
 std::vector<CubeMarsMotor> leftArm = {
-  // CubeMarsMotor(0x01, leftBus, 6, 4000, 6000),
-  // CubeMarsMotor(0x02, leftBus, 6, 4000, 6000),
-  // CubeMarsMotor(0x03, leftBus, 6, 4000, 6000),
-  // CubeMarsMotor(0x04, leftBus, 6, 4000, 6000),
+  CubeMarsMotor(0x01, leftBus, 6, 4000, 6000),
+  CubeMarsMotor(0x02, leftBus, 6, 4000, 6000),
+  CubeMarsMotor(0x03, leftBus, 6, 4000, 6000),
+  CubeMarsMotor(0x04, leftBus, 6, 4000, 6000),
 };
 
-// TEMPORARY: single motor (0x05) for origin testing
 std::vector<CubeMarsMotor> rightArm = {
   CubeMarsMotor(0x05, rightBus, 6, 4000, 6000),
   CubeMarsMotor(0x06, rightBus, 6, 4000, 6000),
@@ -56,8 +54,10 @@ std::vector<CubeMarsMotor> rightArm = {
 bool g_originSet = false;   // false until we run setOrigin() once
 
 // ── RMCS motors ─────────────────────────────────────────────────────────────
-RMCS220X_Left  rmcsLeft;
-RMCS220X_Right rmcsRight;
+// Joint 4  (left forearm)  : Wire1  = pins 17 SDA / 16 SCL
+// Joint 10 (right forearm) : Wire = pins 19 SDA / 18 SCL
+RMCS220xTeensy rmcsLeft(RMCS_ADDR, Wire1);
+RMCS220xTeensy rmcsRight(RMCS_ADDR, Wire);
 
 // ── Wrist servos ────────────────────────────────────────────────────────────
 Servo wristLeftServo;
@@ -125,6 +125,12 @@ uint8_t  g_currentFrame   = 0;
 float    g_frameStart[NUM_JOINTS] = {0};
 uint32_t g_frameStartMs   = 0;
 
+// Pre-computed Catmull-Rom tangents for the current gesture.
+// g_tangents[0]   = tangent at startPos (always 0 — gesture starts from rest)
+// g_tangents[k+1] = tangent at frame[k]
+// g_tangents[n]   = tangent at last frame (always 0 — gesture ends at rest)
+float g_tangents[MAX_KEYFRAMES + 1][NUM_JOINTS];
+
 // ── Predefined gestures ─────────────────────────────────────────────────────
 // NOTE: All gestures end at {0,...,0} (home/rest position).
 // PLACEHOLDER ANGLES — tune with arm_tuner.py on the Jetson.
@@ -178,6 +184,49 @@ const Gesture GESTURE_BYE = {
   .count = 5,
 };
 
+const Gesture GESTURE_NAMASTE = {
+  .frames = {
+    // 1. Raise both forearms to chest, elbows bent inward (prayer position)
+    { .joints = {-20, -15, 0, -60, 0, 0,   -20, -15, 0, -60, 0, 0}, .duration_ms = 1000 },
+    // 2. Hold pose briefly
+    { .joints = {-20, -15, 0, -60, 0, 0,   -20, -15, 0, -60, 0, 0}, .duration_ms = 1000 },
+    // 3. Return to rest
+    { .joints = {0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0}, .duration_ms = 1000 },
+  },
+  .count = 3,
+};
+
+// ── Compute Catmull-Rom tangents for smooth inter-keyframe motion ────────────
+// Point sequence:  p[0]=startPos, p[1]=frame[0], ..., p[n]=frame[n-1]
+// Tangent rules:
+//   v[0]   = 0  (start gesture from rest)
+//   v[n]   = 0  (end gesture at rest)
+//   v[i]   = 0.5 * (incoming_slope + outgoing_slope)  for 1 ≤ i ≤ n-1
+// This gives C1-continuous motion — velocity is continuous through every keyframe.
+void computeTangents(const Gesture *g, const float startPos[NUM_JOINTS]) {
+  int n = g->count;
+
+  // Boundary tangents: zero velocity at start and end
+  for (int j = 0; j < NUM_JOINTS; j++) g_tangents[0][j] = 0.0f;
+  for (int j = 0; j < NUM_JOINTS; j++) g_tangents[n][j] = 0.0f;
+
+  // Interior tangents
+  for (int i = 1; i < n; i++) {
+    float dt_prev = g->frames[i-1].duration_ms / 1000.0f;
+    float dt_next = g->frames[i].duration_ms   / 1000.0f;
+
+    const float *p_prev = (i == 1) ? startPos         : g->frames[i-2].joints;
+    const float *p_cur  =                               g->frames[i-1].joints;
+    const float *p_next =                               g->frames[i].joints;
+
+    for (int j = 0; j < NUM_JOINTS; j++) {
+      float slope_in  = (p_cur[j]  - p_prev[j]) / dt_prev;
+      float slope_out = (p_next[j] - p_cur[j])  / dt_next;
+      g_tangents[i][j] = 0.5f * (slope_in + slope_out);
+    }
+  }
+}
+
 // ── Start a gesture ─────────────────────────────────────────────────────────
 void startGesture(const Gesture *gesture) {
   g_currentGesture = gesture;
@@ -189,6 +238,9 @@ void startGesture(const Gesture *gesture) {
   for (int i = 0; i < NUM_JOINTS; i++) {
     g_frameStart[i] = g_jointTargets[i];
   }
+
+  // Pre-compute Catmull-Rom tangents for smooth motion through all keyframes
+  computeTangents(gesture, g_frameStart);
 
   Serial.print("[GESTURE] Started, frames=");
   Serial.println(gesture->count);
@@ -207,13 +259,23 @@ void updateGesture() {
 
   if (t > 1.0f) t = 1.0f;
 
-  // Ease-out-quart: fast start, smooth deceleration
-  float u = 1.0f - t;
-  float e = 1.0f - u * u * u * u;
+  // Cubic Hermite interpolation — velocity-continuous through all keyframes.
+  // Segment g_currentFrame runs from tangent[g_currentFrame] to tangent[g_currentFrame+1].
+  float t2  = t * t;
+  float t3  = t2 * t;
+  float h00 =  2.0f*t3 - 3.0f*t2 + 1.0f;
+  float h10 =       t3 - 2.0f*t2 + t;
+  float h01 = -2.0f*t3 + 3.0f*t2;
+  float h11 =       t3 -       t2;
+  float dt  = target.duration_ms / 1000.0f;
 
-  // Interpolate all joints
   for (int i = 0; i < NUM_JOINTS; i++) {
-    g_jointTargets[i] = g_frameStart[i] + (target.joints[i] - g_frameStart[i]) * e;
+    float v0 = g_tangents[g_currentFrame][i];
+    float v1 = g_tangents[g_currentFrame + 1][i];
+    g_jointTargets[i] = h00 * g_frameStart[i]
+                      + h10 * dt * v0
+                      + h01 * target.joints[i]
+                      + h11 * dt * v1;
   }
 
   // Advance to next keyframe when this one completes
@@ -242,15 +304,15 @@ void applyJointTargets() {
   if (g_sysState == SYS_WAITING || g_sysState == SYS_MONITORING) return;
 
   // CubeMars left arm (joints 0–3)
-  // for (int i = 0; i < 4; i++) {
-  //   float safe = constrain(g_jointTargets[i], JOINT_MIN[i], JOINT_MAX[i]);
-  //   leftArm[i].setTargetPositionDeg(safe);
-  //   leftArm[i].update();
-  // }
-
-  // CubeMars right arm — TEMPORARY: only motor 0x05 (joint 6)
-  for (int i = 0; i < rightArm.size(); i++) {
+  for (int i = 0; i < (int)leftArm.size(); i++) {
     float safe = constrain(g_jointTargets[i], JOINT_MIN[i], JOINT_MAX[i]);
+    leftArm[i].setTargetPositionDeg(safe);
+    leftArm[i].update();
+  }
+
+  // CubeMars right arm (joints 6–9)
+  for (int i = 0; i < (int)rightArm.size(); i++) {
+    float safe = constrain(g_jointTargets[i + 6], JOINT_MIN[i + 6], JOINT_MAX[i + 6]);
     rightArm[i].setTargetPositionDeg(safe);
     rightArm[i].update();
   }
@@ -258,14 +320,14 @@ void applyJointTargets() {
   // RMCS left forearm (joint 4) — only on change to avoid I2C spam
   float rmcsL = constrain(g_jointTargets[4], JOINT_MIN[4], JOINT_MAX[4]);
   if (fabsf(rmcsL - g_prevRmcsLeft) > 0.1f) {
-    rmcsLeft.goToPositionInDegrees(rmcsL);
+    rmcsLeft.writeAngle(rmcsL);
     g_prevRmcsLeft = rmcsL;
   }
 
   // RMCS right forearm (joint 10) — only on change
   float rmcsR = constrain(g_jointTargets[10], JOINT_MIN[10], JOINT_MAX[10]);
   if (fabsf(rmcsR - g_prevRmcsRight) > 0.1f) {
-    rmcsRight.goToPositionInDegrees(rmcsR);
+    rmcsRight.writeAngle(rmcsR);
     g_prevRmcsRight = rmcsR;
   }
 
@@ -297,7 +359,7 @@ void checkMotorReadiness() {
   // Count how many motors have sent at least one feedback packet
   int readyCount  = 0;
   int expectCount = 0;
-  // for (auto &m : leftArm)  { expectCount++; if (m.hasFeedback()) readyCount++; }
+  for (auto &m : leftArm)  { expectCount++; if (m.hasFeedback()) readyCount++; }
   for (auto &m : rightArm) { expectCount++; if (m.hasFeedback()) readyCount++; }
 
   bool allReady = (readyCount == expectCount);
@@ -309,7 +371,7 @@ void checkMotorReadiness() {
     Serial.print("[WARN] Motor wait timeout! Ready=");
     Serial.print(readyCount); Serial.print("/"); Serial.print(expectCount);
     Serial.print(". Missing IDs:");
-    // for (auto &m : leftArm)  if (!m.hasFeedback()) { Serial.print(" L0x"); Serial.print(m.getMotorId(), HEX); }
+    for (auto &m : leftArm)  if (!m.hasFeedback()) { Serial.print(" L0x"); Serial.print(m.getMotorId(), HEX); }
     for (auto &m : rightArm) if (!m.hasFeedback()) { Serial.print(" R0x"); Serial.print(m.getMotorId(), HEX); }
     Serial.println(" — proceeding anyway");
   } else {
@@ -411,8 +473,8 @@ void checkSerialReady() {
     delay(500);
 
     // RMCS motors: define current pose as 0°
-    rmcsLeft.calibrateEncoderPositionInDegrees(0);
-    rmcsRight.calibrateEncoderPositionInDegrees(0);
+    rmcsLeft.resetEncoder();
+    rmcsRight.resetEncoder();
 
     // After origin is set, zero all joint targets in this new frame.
     // 0° now means "stay exactly where you are right now".
@@ -504,6 +566,8 @@ void arm_state_callback(const void *msgin) {
     startGesture(&GESTURE_BYE);
   } else if (strncmp(cmd, "home", 4) == 0) {
     startGesture(&GESTURE_HOME);
+  } else if (strncmp(cmd, "namaste", 7) == 0) {
+    startGesture(&GESTURE_NAMASTE);
   } else if (strncmp(cmd, "stop", 4) == 0) {
     // Emergency stop — abort gesture, stay at current positions
     g_gestureState = GESTURE_IDLE;
@@ -575,7 +639,7 @@ void setup() {
   // ── CAN buses — init only, do NOT send any motor commands yet ──
   Serial.println("[SETUP] CAN1 (left arm)...");
   leftBus.begin(1000000);
-  // leftBus.attachMotors(leftArm);
+  leftBus.attachMotors(leftArm);
 
   Serial.println("[SETUP] CAN3 (right arm)...");
   rightBus.begin(1000000);
@@ -589,8 +653,8 @@ void setup() {
   // calibrateEncoderPositionInDegrees() is deferred to checkMotorReadiness()
   // for the same reason: RMCS may not be powered when Teensy boots.
   Serial.println("[SETUP] RMCS I2C bus init...");
-  rmcsLeft.begin(RMCS_ADDR);
-  rmcsRight.begin(RMCS_ADDR);
+  rmcsLeft.begin();    // Wire,  pins 18/19, addr 0x08
+  rmcsRight.begin();   // Wire1, pins 17/16, addr 0x08
 
   // ── Wrist servos — center immediately (safe neutral position) ──
   Serial.println("[SETUP] Wrist servos → center (90°)...");
@@ -656,23 +720,27 @@ void checkSerialReset() {
     if (c == '\n' || c == '\r') {
       g_serialBuf[g_serialIdx] = '\0';
       if (g_serialIdx > 0 && strcmp(g_serialBuf, "reset") == 0) {
-        Serial.println("\n[SYS] ══ RESET ══ — restarting motor detection");
-        g_sysState    = SYS_WAITING;
-        g_originSet   = false;
-        g_waitStartMs = millis();
-        g_gestureState = GESTURE_IDLE;
-        g_currentGesture = nullptr;
-        for (int i = 0; i < NUM_JOINTS; i++) g_jointTargets[i] = 0.0f;
-        g_prevRmcsLeft  = -999.0f;
-        g_prevRmcsRight = -999.0f;
-        g_prevServoLeft  = -999.0f;
-        g_prevServoRight = -999.0f;
-        // Clear feedbackReceived so hasFeedback() returns false again
-        for (auto &m : rightArm) m.clearFeedback();
-        Serial.println("[SYS] ══ WAITING for motors ══");
-        Serial.println("  Power motor supply now if not already on.");
+        Serial.println("\n[SYS] ══ RESET ══ — rebooting Teensy...");
+        Serial.flush();
+        _reboot_Teensyduino_();
+      } else if (g_serialIdx > 0 && g_sysState == SYS_READY) {
+        // Gesture commands via Serial monitor (same names as ROS2 /arm_state topic)
+        if      (strcmp(g_serialBuf, "hello")   == 0) { startGesture(&GESTURE_HELLO);   }
+        else if (strcmp(g_serialBuf, "bye")     == 0) { startGesture(&GESTURE_BYE);     }
+        else if (strcmp(g_serialBuf, "home")    == 0) { startGesture(&GESTURE_HOME);    }
+        else if (strcmp(g_serialBuf, "namaste") == 0) { startGesture(&GESTURE_NAMASTE); }
+        else if (strcmp(g_serialBuf, "stop")    == 0) {
+          g_gestureState = GESTURE_IDLE;
+          Serial.println("[CMD] STOP — gesture aborted, holding position");
+        } else if (strcmp(g_serialBuf, "?") == 0 || strcmp(g_serialBuf, "help") == 0) {
+          Serial.println("[SERIAL] Commands: hello | bye | home | namaste | stop | reset");
+        } else {
+          Serial.print("[SERIAL] Unknown: '");
+          Serial.print(g_serialBuf);
+          Serial.println("'  (type 'help' for list)");
+        }
       } else {
-        // Not "reset" — signal checkSerialReady() that a line was entered
+        // Not a gesture command — signal checkSerialReady() that a line was entered
         g_serialLineReady = true;
       }
       g_serialIdx = 0;
@@ -722,7 +790,7 @@ void loop() {
   if (g_sysState == SYS_WAITING && (millis() - lastWaitLogMs >= 2000)) {
     lastWaitLogMs = millis();
     int ready = 0, expect = 0;
-    // for (auto &m : leftArm)  { expect++; if (m.hasFeedback()) ready++; }
+    for (auto &m : leftArm)  { expect++; if (m.hasFeedback()) ready++; }
     for (auto &m : rightArm) { expect++; if (m.hasFeedback()) ready++; }
     uint32_t remaining = MOTOR_WAIT_TIMEOUT_MS - (millis() - g_waitStartMs);
     Serial.print("[SYS] Waiting for motors... ");
