@@ -158,17 +158,27 @@ const Gesture GESTURE_HOME = {
 const Gesture GESTURE_HELLO = {
   .frames = {
     // 1. Raise right arm
-    { .joints = {0, 0, 0, 0, 0, 0,   -30, 20, 0, -45, 0, 0},      .duration_ms = 800, .speed_erpm = 3000 },
+    { .joints = {0, 0, 0, 0, 0, 0,   48, 3, 0, -107, 91, 35},      .duration_ms = 5000, .speed_erpm = 5000 },
     // 2. Wave right (wrist + forearm)
-    { .joints = {0, 0, 0, 0, 0, 0,   -30, 20, 0, -45, 15, 20},    .duration_ms = 400, .speed_erpm = 5000 },
+    { .joints = {0, 0, 0, 0, 0, 0,   48, 3, -8, -107, 91, 35},    .duration_ms = 1000, .speed_erpm = 5000 },
     // 3. Wave left
-    { .joints = {0, 0, 0, 0, 0, 0,   -30, 20, 0, -45, -15, -20},  .duration_ms = 400, .speed_erpm = 5000 },
+    { .joints = {0, 0, 0, 0, 0, 0,   48, 3, 22, -107, 91, 35},  .duration_ms = 1000, .speed_erpm = 5000 },
     // 4. Wave right again
-    { .joints = {0, 0, 0, 0, 0, 0,   -30, 20, 0, -45, 15, 20},    .duration_ms = 400, .speed_erpm = 5000 },
+    { .joints = {0, 0, 0, 0, 0, 0,   48, 3,-13, -107, 91, 35},    .duration_ms = 1000, .speed_erpm = 5000 },
     // 5. Return to rest
-    { .joints = {0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0},           .duration_ms = 800, .speed_erpm = 3000 },
+    { .joints = {0, 0, 0, 0, 0, 0,   48, 3,26, -107, 91, 35},    .duration_ms = 1000, .speed_erpm = 5000 },
+
+    { .joints = {0, 0, 0, 0, 0, 0,   48, 3, 13, -107, 91, 35},    .duration_ms = 1000, .speed_erpm = 5000 },
+
+    { .joints = {0, 0, 0, 0, 0, 0,   48, 2,13, -107, 91, 35},    .duration_ms = 1000, .speed_erpm = 5000 },
+
+    { .joints = {0, 0, 0, 0, 0, 0,   48, 2,10, -70, 91, 35},    .duration_ms = 1000, .speed_erpm = 5000 },
+
+    { .joints = {0, 0, 0, 0, 0, 0,   24, 2,6, -50, 45, 20},    .duration_ms = 1000, .speed_erpm = 5000 },
+
+    { .joints = {0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0},           .duration_ms = 1000, .speed_erpm = 3000 },
   },
-  .count = 5,
+  .count = 10,
 };
 
 const Gesture GESTURE_BYE = {
