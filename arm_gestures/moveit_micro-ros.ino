@@ -85,11 +85,11 @@ uint32_t g_waitStartMs = 0;
 // ── Soft position limits (degrees) ──────────────────────────────────────────
 // Conservative defaults — tighten these after physical testing.
 // Joints:                  0      1      2      3      4      5
-const float JOINT_MIN[NUM_JOINTS] = { -90,  -45,  -90,  -90,  -90,  -80,
+const float JOINT_MIN[NUM_JOINTS] = { -360, -360, -360, -360, -360, -360,
 //                         6      7      8      9     10     11
-                            -90,  -45,  -90,  -90,  -90,  -80 };
-const float JOINT_MAX[NUM_JOINTS] = {  90,   45,   90,   90,   90,   80,
-                                        90,   45,   90,   90,   90,   80 };
+                            -360, -360, -360, -360, -360, -360 };
+const float JOINT_MAX[NUM_JOINTS] = {  360,  360,  360,  360,  360,  360,
+                                        360,  360,  360,  360,  360,  360 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Gesture engine
@@ -100,7 +100,7 @@ struct Keyframe {
   uint32_t duration_ms;          // time to interpolate from previous frame to this
 };
 
-#define MAX_KEYFRAMES 10
+#define MAX_KEYFRAMES 20
 
 struct Gesture {
   Keyframe frames[MAX_KEYFRAMES];
@@ -194,6 +194,38 @@ const Gesture GESTURE_NAMASTE = {
     { .joints = {0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0}, .duration_ms = 1000 },
   },
   .count = 3,
+};
+
+const Gesture GESTURE_HANDSHAKE = {
+  .frames = {
+    // 1. Extend right arm forward at waist height
+    { .joints = {0, 0, 0, 0, 0, 0,   3, 4, 0, -10, 0, 0}, .duration_ms = 1000 },
+    // 2. Shake down
+    { .joints = {0, 0, 0, 0, 0, 0,   3, 5, 0, -50, 0, 0}, .duration_ms = 1000 },
+    // 3. Shake up
+    { .joints = {0, 0, 0, 0, 0, 0,   3, 5, -11, -76, 0, 0}, .duration_ms = 2000 },
+
+    { .joints = {0, 0, 0, 0, 0, 0,   3, 5, -11, -76, 0, 0}, .duration_ms = 1000 },
+
+
+    { .joints = {0, 0, 0, 0, 0, 0,   3, 5, -11, -70, 0, 0}, .duration_ms = 1000 },
+
+    { .joints = {0, 0, 0, 0, 0, 0,   3, 5, -11, -76, 0, 0}, .duration_ms = 1000 },
+
+    // { .joints = {0, 0, 0, 0, 0, 0,   3, 5, -11, -70, 0, 0}, .duration_ms = 2000 },
+
+    { .joints = {0, 0, 0, 0, 0, 0,   3, 5, -11, -70, 0, 0}, .duration_ms = 1000 },
+
+    { .joints = {0, 0, 0, 0, 0, 0,   3, 5, -11, -70, 0, 0}, .duration_ms = 4000 },
+
+    // 4. Shake down
+    { .joints = {0, 0, 0, 0, 0, 0,   3, 5, 0, -50, 0, 0}, .duration_ms = 1000 },
+    // 5. Shake up
+    { .joints = {0, 0, 0, 0, 0, 0,   3, 4, 0, 0, 0, 0}, .duration_ms = 1000 },
+    // 6. Return to rest
+    { .joints = {0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0}, .duration_ms = 1000 },
+  },
+  .count = 11,
 };
 
 // ── Compute Catmull-Rom tangents for smooth inter-keyframe motion ────────────
@@ -568,6 +600,8 @@ void arm_state_callback(const void *msgin) {
     startGesture(&GESTURE_HOME);
   } else if (strncmp(cmd, "namaste", 7) == 0) {
     startGesture(&GESTURE_NAMASTE);
+  } else if (strncmp(cmd, "handshake", 9) == 0) {
+    startGesture(&GESTURE_HANDSHAKE);
   } else if (strncmp(cmd, "stop", 4) == 0) {
     // Emergency stop — abort gesture, stay at current positions
     g_gestureState = GESTURE_IDLE;
@@ -728,12 +762,13 @@ void checkSerialReset() {
         if      (strcmp(g_serialBuf, "hello")   == 0) { startGesture(&GESTURE_HELLO);   }
         else if (strcmp(g_serialBuf, "bye")     == 0) { startGesture(&GESTURE_BYE);     }
         else if (strcmp(g_serialBuf, "home")    == 0) { startGesture(&GESTURE_HOME);    }
-        else if (strcmp(g_serialBuf, "namaste") == 0) { startGesture(&GESTURE_NAMASTE); }
-        else if (strcmp(g_serialBuf, "stop")    == 0) {
+        else if (strcmp(g_serialBuf, "namaste")   == 0) { startGesture(&GESTURE_NAMASTE);   }
+        else if (strcmp(g_serialBuf, "handshake") == 0) { startGesture(&GESTURE_HANDSHAKE); }
+        else if (strcmp(g_serialBuf, "stop")      == 0) {
           g_gestureState = GESTURE_IDLE;
           Serial.println("[CMD] STOP — gesture aborted, holding position");
         } else if (strcmp(g_serialBuf, "?") == 0 || strcmp(g_serialBuf, "help") == 0) {
-          Serial.println("[SERIAL] Commands: hello | bye | home | namaste | stop | reset");
+          Serial.println("[SERIAL] Commands: hello | bye | home | namaste | handshake | stop | reset");
         } else {
           Serial.print("[SERIAL] Unknown: '");
           Serial.print(g_serialBuf);
