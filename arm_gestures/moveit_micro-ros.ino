@@ -95,9 +95,12 @@ const float JOINT_MAX[NUM_JOINTS] = {  360,  360,  360,  360,  360,  360,
 //  Gesture engine
 // ═══════════════════════════════════════════════════════════════════════════════
 
+#define MOTOR_DEFAULT_SPEED_ERPM 4000
+
 struct Keyframe {
   float    joints[NUM_JOINTS];
-  uint32_t duration_ms;          // time to interpolate from previous frame to this
+  uint32_t duration_ms;     // time to interpolate from previous frame to this
+  int32_t  speed_erpm;      // CubeMars motor speed for this segment (0 = use default 4000)
 };
 
 #define MAX_KEYFRAMES 20
@@ -140,14 +143,14 @@ float g_tangents[MAX_KEYFRAMES + 1][NUM_JOINTS];
 // CubeMars motors (4000 ERPM speed) time to move safely from any position.
 const Gesture GESTURE_HOME_SLOW = {
   .frames = {
-    { .joints = {0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0}, .duration_ms = 3000 },
+    { .joints = {0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0}, .duration_ms = 3000, .speed_erpm = 1000 },
   },
   .count = 1,
 };
 
 const Gesture GESTURE_HOME = {
   .frames = {
-    { .joints = {0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0}, .duration_ms = 1000 },
+    { .joints = {0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0}, .duration_ms = 1000, .speed_erpm = 3000 },
   },
   .count = 1,
 };
@@ -155,15 +158,15 @@ const Gesture GESTURE_HOME = {
 const Gesture GESTURE_HELLO = {
   .frames = {
     // 1. Raise right arm
-    { .joints = {0, 0, 0, 0, 0, 0,   -30, 20, 0, -45, 0, 0}, .duration_ms = 800 },
+    { .joints = {0, 0, 0, 0, 0, 0,   -30, 20, 0, -45, 0, 0},      .duration_ms = 800, .speed_erpm = 3000 },
     // 2. Wave right (wrist + forearm)
-    { .joints = {0, 0, 0, 0, 0, 0,   -30, 20, 0, -45, 15, 20}, .duration_ms = 400 },
+    { .joints = {0, 0, 0, 0, 0, 0,   -30, 20, 0, -45, 15, 20},    .duration_ms = 400, .speed_erpm = 5000 },
     // 3. Wave left
-    { .joints = {0, 0, 0, 0, 0, 0,   -30, 20, 0, -45, -15, -20}, .duration_ms = 400 },
+    { .joints = {0, 0, 0, 0, 0, 0,   -30, 20, 0, -45, -15, -20},  .duration_ms = 400, .speed_erpm = 5000 },
     // 4. Wave right again
-    { .joints = {0, 0, 0, 0, 0, 0,   -30, 20, 0, -45, 15, 20}, .duration_ms = 400 },
+    { .joints = {0, 0, 0, 0, 0, 0,   -30, 20, 0, -45, 15, 20},    .duration_ms = 400, .speed_erpm = 5000 },
     // 5. Return to rest
-    { .joints = {0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0}, .duration_ms = 800 },
+    { .joints = {0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0},           .duration_ms = 800, .speed_erpm = 3000 },
   },
   .count = 5,
 };
@@ -171,15 +174,15 @@ const Gesture GESTURE_HELLO = {
 const Gesture GESTURE_BYE = {
   .frames = {
     // 1. Raise both arms slightly
-    { .joints = {-20, 15, 0, -30, 0, 0,   -20, 15, 0, -30, 0, 0}, .duration_ms = 800 },
+    { .joints = {-20, 15, 0, -30, 0, 0,   -20, 15, 0, -30, 0, 0},              .duration_ms = 800, .speed_erpm = 3000 },
     // 2. Wave out
-    { .joints = {-20, 25, 0, -30, 10, 15,   -20, 25, 0, -30, 10, 15}, .duration_ms = 400 },
+    { .joints = {-20, 25, 0, -30, 10, 15,   -20, 25, 0, -30, 10, 15},          .duration_ms = 400, .speed_erpm = 5000 },
     // 3. Wave in
-    { .joints = {-20, 15, 0, -30, -10, -15,   -20, 15, 0, -30, -10, -15}, .duration_ms = 400 },
+    { .joints = {-20, 15, 0, -30, -10, -15,   -20, 15, 0, -30, -10, -15},      .duration_ms = 400, .speed_erpm = 5000 },
     // 4. Wave out again
-    { .joints = {-20, 25, 0, -30, 10, 15,   -20, 25, 0, -30, 10, 15}, .duration_ms = 400 },
+    { .joints = {-20, 25, 0, -30, 10, 15,   -20, 25, 0, -30, 10, 15},          .duration_ms = 400, .speed_erpm = 5000 },
     // 5. Return to rest
-    { .joints = {0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0}, .duration_ms = 800 },
+    { .joints = {0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0},                        .duration_ms = 800, .speed_erpm = 3000 },
   },
   .count = 5,
 };
@@ -187,11 +190,11 @@ const Gesture GESTURE_BYE = {
 const Gesture GESTURE_NAMASTE = {
   .frames = {
     // 1. Raise both forearms to chest, elbows bent inward (prayer position)
-    { .joints = {-20, -15, 0, -60, 0, 0,   -20, -15, 0, -60, 0, 0}, .duration_ms = 1000 },
+    { .joints = {-20, -15, 0, -60, 0, 0,   -20, -15, 0, -60, 0, 0}, .duration_ms = 1000, .speed_erpm = 2000 },
     // 2. Hold pose briefly
-    { .joints = {-20, -15, 0, -60, 0, 0,   -20, -15, 0, -60, 0, 0}, .duration_ms = 1000 },
+    { .joints = {-20, -15, 0, -60, 0, 0,   -20, -15, 0, -60, 0, 0}, .duration_ms = 1000, .speed_erpm = 2000 },
     // 3. Return to rest
-    { .joints = {0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0}, .duration_ms = 1000 },
+    { .joints = {0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0},             .duration_ms = 1000, .speed_erpm = 2000 },
   },
   .count = 3,
 };
@@ -199,31 +202,22 @@ const Gesture GESTURE_NAMASTE = {
 const Gesture GESTURE_HANDSHAKE = {
   .frames = {
     // 1. Extend right arm forward at waist height
-    { .joints = {0, 0, 0, 0, 0, 0,   3, 4, 0, -10, 0, 0}, .duration_ms = 1000 },
+    { .joints = {0, 0, 0, 0, 0, 0,   3, 4, 0, -10, 0, 0},    .duration_ms = 1000, .speed_erpm = 2000 },
     // 2. Shake down
-    { .joints = {0, 0, 0, 0, 0, 0,   3, 5, 0, -50, 0, 0}, .duration_ms = 1000 },
+    { .joints = {0, 0, 0, 0, 0, 0,   3, 5, 0, -50, 0, 0},    .duration_ms = 1000, .speed_erpm = 3000 },
     // 3. Shake up
-    { .joints = {0, 0, 0, 0, 0, 0,   3, 5, -11, -76, 0, 0}, .duration_ms = 2000 },
-
-    { .joints = {0, 0, 0, 0, 0, 0,   3, 5, -11, -76, 0, 0}, .duration_ms = 1000 },
-
-
-    { .joints = {0, 0, 0, 0, 0, 0,   3, 5, -11, -70, 0, 0}, .duration_ms = 1000 },
-
-    { .joints = {0, 0, 0, 0, 0, 0,   3, 5, -11, -76, 0, 0}, .duration_ms = 1000 },
-
-    // { .joints = {0, 0, 0, 0, 0, 0,   3, 5, -11, -70, 0, 0}, .duration_ms = 2000 },
-
-    { .joints = {0, 0, 0, 0, 0, 0,   3, 5, -11, -70, 0, 0}, .duration_ms = 1000 },
-
-    { .joints = {0, 0, 0, 0, 0, 0,   3, 5, -11, -70, 0, 0}, .duration_ms = 4000 },
-
+    { .joints = {0, 0, 0, 0, 0, 0,   3, 5, -11, -76, 0, 0},  .duration_ms = 2000, .speed_erpm = 3000 },
+    { .joints = {0, 0, 0, 0, 0, 0,   3, 5, -11, -76, 0, 0},  .duration_ms = 1000, .speed_erpm = 7000 },
+    { .joints = {0, 0, 0, 0, 0, 0,   3, 5, -11, -70, 0, 0},  .duration_ms = 1000, .speed_erpm = 7000 },
+    { .joints = {0, 0, 0, 0, 0, 0,   3, 5, -11, -76, 0, 0},  .duration_ms = 1000, .speed_erpm = 7000 },
+    { .joints = {0, 0, 0, 0, 0, 0,   3, 5, -11, -70, 0, 0},  .duration_ms = 1000, .speed_erpm = 7000 },
+    { .joints = {0, 0, 0, 0, 0, 0,   3, 5, -11, -70, 0, 0},  .duration_ms = 1000, .speed_erpm = 7000 },
     // 4. Shake down
-    { .joints = {0, 0, 0, 0, 0, 0,   3, 5, 0, -50, 0, 0}, .duration_ms = 1000 },
+    { .joints = {0, 0, 0, 0, 0, 0,   3, 5, -11, -50, 0, 0},    .duration_ms = 1000, .speed_erpm = 3000 },
     // 5. Shake up
-    { .joints = {0, 0, 0, 0, 0, 0,   3, 4, 0, 0, 0, 0}, .duration_ms = 1000 },
+    { .joints = {0, 0, 0, 0, 0, 0,   3, 4, 0, 0, 0, 0},      .duration_ms = 1000, .speed_erpm = 2000 },
     // 6. Return to rest
-    { .joints = {0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0}, .duration_ms = 1000 },
+    { .joints = {0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0},      .duration_ms = 1000, .speed_erpm = 2000 },
   },
   .count = 11,
 };
@@ -259,6 +253,13 @@ void computeTangents(const Gesture *g, const float startPos[NUM_JOINTS]) {
   }
 }
 
+// ── Apply per-keyframe speed to all CubeMars motors ─────────────────────────
+void applyFrameSpeed(const Keyframe &frame) {
+  int32_t spd = (frame.speed_erpm > 0) ? frame.speed_erpm : MOTOR_DEFAULT_SPEED_ERPM;
+  for (auto &m : leftArm)  m.setSpeedErpm(spd);
+  for (auto &m : rightArm) m.setSpeedErpm(spd);
+}
+
 // ── Start a gesture ─────────────────────────────────────────────────────────
 void startGesture(const Gesture *gesture) {
   g_currentGesture = gesture;
@@ -273,6 +274,9 @@ void startGesture(const Gesture *gesture) {
 
   // Pre-compute Catmull-Rom tangents for smooth motion through all keyframes
   computeTangents(gesture, g_frameStart);
+
+  // Apply speed for the first keyframe
+  applyFrameSpeed(gesture->frames[0]);
 
   Serial.print("[GESTURE] Started, frames=");
   Serial.println(gesture->count);
@@ -325,6 +329,8 @@ void updateGesture() {
       g_frameStart[i] = g_jointTargets[i];
     }
     g_frameStartMs = millis();
+    // Apply speed for the new keyframe
+    applyFrameSpeed(g_currentGesture->frames[g_currentFrame]);
   }
 }
 
