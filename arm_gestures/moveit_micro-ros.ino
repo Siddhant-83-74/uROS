@@ -48,7 +48,7 @@ std::vector<CubeMarsMotor> leftArm = {
 std::vector<CubeMarsMotor> rightArm = {
   CubeMarsMotor(0x05, rightBus, 6, 4000, 6000),
   CubeMarsMotor(0x06, rightBus, 6, 4000, 6000),
-  CubeMarsMotor(0x08, rightBus, 6, 4000, 6000),
+  CubeMarsMotor(0x01, rightBus, 6, 4000, 6000),
   CubeMarsMotor(0x02, rightBus, 6, 4000, 6000),
 };
 bool g_originSet = false;   // false until we run setOrigin() once
@@ -155,60 +155,86 @@ const Gesture GESTURE_HOME = {
   .count = 1,
 };
 
+const Gesture GESTURE_HELLO = {
+  .frames = {
+    // 1. Raise right arm
+    { .joints = {0, 0, 0, 0, 0, 0,   48, 3, 0, -107, 91, 35},      .duration_ms = 5000, .speed_erpm = 5000 },
+    // 2. Wave right (wrist + forearm)
+    { .joints = {0, 0, 0, 0, 0, 0,   48, 3, -8, -107, 91, 35},    .duration_ms = 1000, .speed_erpm = 5000 },
+    // 3. Wave left
+    { .joints = {0, 0, 0, 0, 0, 0,   48, 3, 22, -107, 91, 35},  .duration_ms = 1000, .speed_erpm = 5000 },
+    // 4. Wave right again
+    { .joints = {0, 0, 0, 0, 0, 0,   48, 3,-13, -107, 91, 35},    .duration_ms = 1000, .speed_erpm = 5000 },
+    // 5. Return to rest
+    { .joints = {0, 0, 0, 0, 0, 0,   48, 3,26, -107, 91, 35},    .duration_ms = 1000, .speed_erpm = 5000 },
+
+    { .joints = {0, 0, 0, 0, 0, 0,   48, 3, 13, -107, 91, 35},    .duration_ms = 1000, .speed_erpm = 5000 },
+
+    { .joints = {0, 0, 0, 0, 0, 0,   48, 2,13, -107, 91, 35},    .duration_ms = 1000, .speed_erpm = 5000 },
+
+    { .joints = {0, 0, 0, 0, 0, 0,   48, 2,10, -70, 91, 35},    .duration_ms = 1000, .speed_erpm = 5000 },
+
+    { .joints = {0, 0, 0, 0, 0, 0,   24, 2,6, -50, 45, 20},    .duration_ms = 1000, .speed_erpm = 5000 },
+
+    { .joints = {0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0},           .duration_ms = 1000, .speed_erpm = 3000 },
+  },
+  .count = 10,
+};
+
+
+
 // const Gesture GESTURE_HELLO = {
 //   .frames = {
 //     // 1. Raise right arm
-//     { .joints = {0, 0, 0, 0, 0, 0,   48, 3, 0, -107, 91, 35},      .duration_ms = 5000, .speed_erpm = 5000 },
+//     { .joints = {-34, 8, -1, -117, 0, 0,   0, 0, 0, 0, 0, 0},      .duration_ms = 5000, .speed_erpm = 5000 },
 //     // 2. Wave right (wrist + forearm)
-//     { .joints = {0, 0, 0, 0, 0, 0,   48, 3, -8, -107, 91, 35},    .duration_ms = 1000, .speed_erpm = 5000 },
+//     { .joints = {-34, 8, -10, -117, 0, 0,   0, 0, 0, 0, 0, 0},      .duration_ms = 1000, .speed_erpm = 5000 },
+
+//     { .joints = {-34, 8, 20, -117, 0, 0,   0, 0, 0, 0, 0, 0},      .duration_ms = 1000, .speed_erpm = 5000 },
+
+//     { .joints = {-34, 8, -24, -117, 0, 0,   0, 0, 0, 0, 0, 0},      .duration_ms = 1000, .speed_erpm = 5000 },
+
+//     { .joints = {-34, 8, 24, -117, 0, 0,   0, 0, 0, 0, 0, 0},      .duration_ms = 1000, .speed_erpm = 5000 },
+
+//     { .joints = {-34, 8, 10, -117, 0, 0,   0, 0, 0, 0, 0, 0},      .duration_ms = 1000, .speed_erpm = 5000 },
+
+//     { .joints = {-34, 8, 10, -117, 0, 0,   0, 0, 0, 0, 0, 0},      .duration_ms = 1000, .speed_erpm = 5000 },
+
+//     { .joints = {-25, 4, 5, -80, 0, 0,   0, 0, 0, 0, 0, 0},      .duration_ms = 1000, .speed_erpm = 5000 },
+
+//     { .joints = {-10, 2, 5, -30, 0, 0,   0, 0, 0, 0, 0, 0},      .duration_ms = 1000, .speed_erpm = 5000 },
+
+//     { .joints = {0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0},      .duration_ms = 1000, .speed_erpm = 3000 },
+
+//   },
+//   .count = 10,
+// };
+
+// const Gesture GESTURE_HELLO = {
+//   .frames = {
+//     // 1. Raise right arm
+//     { .joints = {-34, 8, -1, -117, 0, 0,   48, 3, 0, -107, 91, 35},      .duration_ms = 5000, .speed_erpm = 5000 },
+//     // 2. Wave right (wrist + forearm)
+//     { .joints = {-34, 8, -10, -117, 0, 0,   48, 3, -8, -107, 91, 35},    .duration_ms = 1000, .speed_erpm = 5000 },
 //     // 3. Wave left
-//     { .joints = {0, 0, 0, 0, 0, 0,   48, 3, 22, -107, 91, 35},  .duration_ms = 1000, .speed_erpm = 5000 },
+//     { .joints = {-34, 8, 20, -117, 0, 0,   48, 3, 22, -107, 91, 35},  .duration_ms = 1000, .speed_erpm = 5000 },
 //     // 4. Wave right again
-//     { .joints = {0, 0, 0, 0, 0, 0,   48, 3,-13, -107, 91, 35},    .duration_ms = 1000, .speed_erpm = 5000 },
+//     { .joints = {-34, 8, -24, -117, 0, 0,   48, 3,-13, -107, 91, 35},    .duration_ms = 1000, .speed_erpm = 5000 },
 //     // 5. Return to rest
-//     { .joints = {0, 0, 0, 0, 0, 0,   48, 3,26, -107, 91, 35},    .duration_ms = 1000, .speed_erpm = 5000 },
+//     { .joints = {-34, 8, 24, -117, 0, 0,   48, 3,26, -107, 91, 35},    .duration_ms = 1000, .speed_erpm = 5000 },
 
-//     { .joints = {0, 0, 0, 0, 0, 0,   48, 3, 13, -107, 91, 35},    .duration_ms = 1000, .speed_erpm = 5000 },
+//     { .joints = {-34, 8, 20, -117, 0, 0,   48, 3, 13, -107, 91, 35},    .duration_ms = 1000, .speed_erpm = 5000 },
 
-//     { .joints = {0, 0, 0, 0, 0, 0,   48, 2,13, -107, 91, 35},    .duration_ms = 1000, .speed_erpm = 5000 },
+//     { .joints = {-34, 8, 20, -117, 0,   48, 2,13, -107, 91, 35},    .duration_ms = 1000, .speed_erpm = 5000 },
 
-//     { .joints = {0, 0, 0, 0, 0, 0,   48, 2,10, -70, 91, 35},    .duration_ms = 1000, .speed_erpm = 5000 },
+//     { .joints = {-25, 4, 5, -80, 0, 0,   48, 2,10, -70, 91, 35},    .duration_ms = 1000, .speed_erpm = 5000 },
 
-//     { .joints = {0, 0, 0, 0, 0, 0,   24, 2,6, -50, 45, 20},    .duration_ms = 1000, .speed_erpm = 5000 },
+//     { .joints = {-10, 2, 5, -30, 0, 0,   24, 2,6, -50, 45, 20},    .duration_ms = 1000, .speed_erpm = 5000 },
 
 //     { .joints = {0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0},           .duration_ms = 1000, .speed_erpm = 3000 },
 //   },
 //   .count = 10,
 // };
-
-
-
-const Gesture GESTURE_HELLO = {
-  .frames = {
-    // 1. Raise right arm
-    { .joints = {-34, 8, -1, -117, 0, 0,   0, 0, 0, 0, 0, 0},      .duration_ms = 5000, .speed_erpm = 5000 },
-    // 2. Wave right (wrist + forearm)
-    { .joints = {-34, 8, -10, -117, 0, 0,   0, 0, 0, 0, 0, 0},      .duration_ms = 1000, .speed_erpm = 5000 },
-
-    { .joints = {-34, 8, 20, -117, 0, 0,   0, 0, 0, 0, 0, 0},      .duration_ms = 1000, .speed_erpm = 5000 },
-
-    { .joints = {-34, 8, -24, -117, 0, 0,   0, 0, 0, 0, 0, 0},      .duration_ms = 1000, .speed_erpm = 5000 },
-
-    { .joints = {-34, 8, 24, -117, 0, 0,   0, 0, 0, 0, 0, 0},      .duration_ms = 1000, .speed_erpm = 5000 },
-
-    { .joints = {-34, 8, 10, -117, 0, 0,   0, 0, 0, 0, 0, 0},      .duration_ms = 1000, .speed_erpm = 5000 },
-
-    { .joints = {-34, 8, 10, -117, 0, 0,   0, 0, 0, 0, 0, 0},      .duration_ms = 1000, .speed_erpm = 5000 },
-
-    { .joints = {-25, 4, 5, -80, 0, 0,   0, 0, 0, 0, 0, 0},      .duration_ms = 1000, .speed_erpm = 5000 },
-
-    { .joints = {-10, 2, 5, -30, 0, 0,   0, 0, 0, 0, 0, 0},      .duration_ms = 1000, .speed_erpm = 5000 },
-
-    { .joints = {0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0},      .duration_ms = 1000, .speed_erpm = 3000 },
-
-  },
-  .count = 10,
-};
 
 const Gesture GESTURE_BYE = {
   .frames = {
@@ -423,6 +449,25 @@ void applyJointTargets() {
   }
 }
 
+// ── Print CAN motor status table ────────────────────────────────────────────
+void printMotorStatus() {
+  Serial.print("[MOTORS] CAN1:");
+  for (auto &m : leftArm) {
+    Serial.print(" 0x");
+    if (m.getMotorId() < 0x10) Serial.print("0");
+    Serial.print(m.getMotorId(), HEX);
+    Serial.print(m.hasFeedback() ? "=ONLINE" : "=offline");
+  }
+  Serial.print("  |  CAN3:");
+  for (auto &m : rightArm) {
+    Serial.print(" 0x");
+    if (m.getMotorId() < 0x10) Serial.print("0");
+    Serial.print(m.getMotorId(), HEX);
+    Serial.print(m.hasFeedback() ? "=ONLINE" : "=offline");
+  }
+  Serial.println();
+}
+
 // ── Motor readiness check ────────────────────────────────────────────────────
 // Called every loop tick while in SYS_WAITING.
 // Polls all 8 CubeMars motors for CAN feedback. Once all have responded
@@ -454,6 +499,7 @@ void checkMotorReadiness() {
   } else {
     Serial.print("[SYS] All "); Serial.print(readyCount); Serial.println(" CubeMars motors confirmed online");
   }
+  printMotorStatus();
 
   // ── Transition to MONITORING — show real physical positions BEFORE setOrigin ──
   // The operator sees where the arm actually is right now (in the motor's raw
@@ -878,6 +924,7 @@ void loop() {
     Serial.print(" online, timeout in ");
     Serial.print(remaining / 1000);
     Serial.println("s");
+    printMotorStatus();
   }
 
   // 7. Status print (1 Hz, only when READY)
