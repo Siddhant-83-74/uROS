@@ -48,10 +48,10 @@ std::vector<CubeMarsMotor> leftArm = {
 };
 
 std::vector<CubeMarsMotor> rightArm = {
-  CubeMarsMotor(0x05, rightBus, 6, 4000, 6000),
-  CubeMarsMotor(0x06, rightBus, 6, 4000, 6000),
-  CubeMarsMotor(0x01, rightBus, 6, 4000, 6000),
-  CubeMarsMotor(0x02, rightBus, 6, 4000, 6000),
+  CubeMarsMotor(0x05, rightBus, 6, 6000, 8000),
+  CubeMarsMotor(0x06, rightBus, 6, 6000, 8000),
+  CubeMarsMotor(0x01, rightBus, 6, 6000, 8000),
+  CubeMarsMotor(0x02, rightBus, 6, 6000, 8000),
 };
 bool g_originSet = false;
 
@@ -777,7 +777,7 @@ void setup() {
   Serial.println("[SETUP] Neck servos...");
   neckServo.attach(NECK_PIN);
   neckServoY.attach(NECK_PIN_Y);
-  neckServoY.write(80);
+  neckServoY.write(90);
   setNeckImmediate(NECK_CENTER_DEG);
 
   Serial.println("[SETUP] PCA9685 (Wire2, 0x40)...");
@@ -857,21 +857,60 @@ void checkSerialReset() {
         Serial.println("\n[SYS] ══ RESET ══ — rebooting Teensy...");
         Serial.flush();
         _reboot_Teensyduino_();
-      } else if (g_serialIdx > 0 && g_sysState == SYS_READY) {
-        if      (strcmp(g_serialBuf, "hello")     == 0) startGesture(&GESTURE_HELLO);
-        else if (strcmp(g_serialBuf, "bye")       == 0) startGesture(&GESTURE_BYE);
-        else if (strcmp(g_serialBuf, "home")      == 0) startGesture(&GESTURE_HOME);
-        else if (strcmp(g_serialBuf, "namaste")   == 0) startGesture(&GESTURE_NAMASTE);
-        else if (strcmp(g_serialBuf, "handshake") == 0) startGesture(&GESTURE_HANDSHAKE);
-        else if (strcmp(g_serialBuf, "stop")      == 0) {
-          g_gestureState = GESTURE_IDLE;
-          Serial.println("[CMD] STOP — gesture aborted, holding position");
+      } else if (g_serialIdx > 0) {
+        // Head commands work regardless of SYS_READY (head is never gated)
+        if (strcmp(g_serialBuf, "blink") == 0) {
+          if (g_blinkState == BLINK_IDLE) {
+            g_blinkState = BLINK_CLOSING;
+            g_blinkMs    = millis();
+            setEyes(EYE_CLOSED_TICK);
+            Serial.println("[HEAD] blink");
+          }
+        } else if (strcmp(g_serialBuf, "talking") == 0) {
+          if (!g_talking) {
+            g_talkPhase     = 0.0f;
+            g_talkFreq      = 2.0f;
+            g_talkAmp       = 0.3f;
+            g_talkAmpTarget = 0.3f;
+            g_talkLastMs    = millis();
+            g_talkNextVarMs = millis();
+          }
+          g_talking = true;
+          Serial.println("[HEAD] talking ON");
+        } else if (strcmp(g_serialBuf, "not_talking") == 0) {
+          g_talking = false;
+          setJawLip(false);
+          Serial.println("[HEAD] talking OFF");
+        } else if (strcmp(g_serialBuf, "left") == 0) {
+          startNeckMove(NECK_LEFT_DEG);
+          Serial.println("[HEAD] neck left");
+        } else if (strcmp(g_serialBuf, "right") == 0) {
+          startNeckMove(NECK_RIGHT_DEG);
+          Serial.println("[HEAD] neck right");
+        } else if (strcmp(g_serialBuf, "front") == 0) {
+          startNeckMove(NECK_CENTER_DEG);
+          Serial.println("[HEAD] neck front");
+        } else if (g_sysState == SYS_READY) {
+          if      (strcmp(g_serialBuf, "hello")     == 0) startGesture(&GESTURE_HELLO);
+          else if (strcmp(g_serialBuf, "bye")       == 0) startGesture(&GESTURE_BYE);
+          else if (strcmp(g_serialBuf, "home")      == 0) startGesture(&GESTURE_HOME);
+          else if (strcmp(g_serialBuf, "namaste")   == 0) startGesture(&GESTURE_NAMASTE);
+          else if (strcmp(g_serialBuf, "handshake") == 0) startGesture(&GESTURE_HANDSHAKE);
+          else if (strcmp(g_serialBuf, "stop")      == 0) {
+            g_gestureState = GESTURE_IDLE;
+            Serial.println("[CMD] STOP — gesture aborted, holding position");
+          } else if (strcmp(g_serialBuf, "?") == 0 || strcmp(g_serialBuf, "help") == 0) {
+            Serial.println("[SERIAL] Head:  blink | talking | not_talking | left | right | front");
+            Serial.println("[SERIAL] Arms:  hello | bye | home | namaste | handshake | stop | reset");
+          } else {
+            Serial.print("[SERIAL] Unknown: '");
+            Serial.print(g_serialBuf);
+            Serial.println("'  (type 'help' for list)");
+          }
         } else if (strcmp(g_serialBuf, "?") == 0 || strcmp(g_serialBuf, "help") == 0) {
-          Serial.println("[SERIAL] Arms: hello | bye | home | namaste | handshake | stop | reset");
+          Serial.println("[SERIAL] Head:  blink | talking | not_talking | left | right | front  (arms not ready yet)");
         } else {
-          Serial.print("[SERIAL] Unknown: '");
-          Serial.print(g_serialBuf);
-          Serial.println("'  (type 'help' for list)");
+          g_serialLineReady = true;
         }
       } else {
         g_serialLineReady = true;
