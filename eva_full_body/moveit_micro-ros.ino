@@ -41,10 +41,10 @@ CubeMarsCAN<CAN1> leftBus;
 CubeMarsCAN<CAN3> rightBus;
 
 std::vector<CubeMarsMotor> leftArm = {
-  CubeMarsMotor(0x01, leftBus, 6, 4000, 6000),
-  CubeMarsMotor(0x02, leftBus, 6, 4000, 6000),
-  CubeMarsMotor(0x03, leftBus, 6, 4000, 6000),
-  CubeMarsMotor(0x04, leftBus, 6, 4000, 6000),
+//   CubeMarsMotor(0x01, leftBus, 6, 4000, 6000),
+//   CubeMarsMotor(0x02, leftBus, 6, 4000, 6000),
+//   CubeMarsMotor(0x03, leftBus, 6, 4000, 6000),
+//   CubeMarsMotor(0x04, leftBus, 6, 4000, 6000),
 };
 
 std::vector<CubeMarsMotor> rightArm = {
