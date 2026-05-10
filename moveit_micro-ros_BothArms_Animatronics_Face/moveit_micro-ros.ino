@@ -117,6 +117,11 @@ enum BlinkState { BLINK_IDLE, BLINK_CLOSING, BLINK_OPENING };
 BlinkState g_blinkState = BLINK_IDLE;
 uint32_t   g_blinkMs    = 0;
 
+// ── Serial command buffer ──────────────────────────────────────────────────────
+#define SERIAL_BUF_MAX 32
+char     g_serialBuf[SERIAL_BUF_MAX];
+uint8_t  g_serialIdx = 0;
+
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Helpers
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -294,6 +299,61 @@ void updateBlink() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+//  Serial command handler
+// ═══════════════════════════════════════════════════════════════════════════════
+void checkSerial() {
+    while (Serial.available()) {
+        char c = Serial.read();
+        if (c == '\n' || c == '\r') {
+            g_serialBuf[g_serialIdx] = '\0';
+            if (g_serialIdx > 0) {
+                if (strcmp(g_serialBuf, "blink") == 0) {
+                    if (g_blinkState == BLINK_IDLE) {
+                        g_blinkState = BLINK_CLOSING;
+                        g_blinkMs    = millis();
+                        setEyes(EYE_CLOSED_TICK);
+                        Serial.println("[HEAD] blink");
+                    }
+                } else if (strcmp(g_serialBuf, "talking") == 0) {
+                    if (!g_talking) {
+                        g_talkPhase     = 0.0f;
+                        g_talkFreq      = 2.0f;
+                        g_talkAmp       = 0.3f;
+                        g_talkAmpTarget = 0.3f;
+                        g_talkLastMs    = millis();
+                        g_talkNextVarMs = millis();
+                    }
+                    g_talking = true;
+                    Serial.println("[HEAD] talking ON");
+                } else if (strcmp(g_serialBuf, "not_talking") == 0) {
+                    g_talking = false;
+                    setJawLip(false);
+                    Serial.println("[HEAD] talking OFF");
+                } else if (strcmp(g_serialBuf, "left") == 0) {
+                    startNeckMove(NECK_LEFT_DEG);
+                    Serial.println("[HEAD] neck left");
+                } else if (strcmp(g_serialBuf, "right") == 0) {
+                    startNeckMove(NECK_RIGHT_DEG);
+                    Serial.println("[HEAD] neck right");
+                } else if (strcmp(g_serialBuf, "front") == 0) {
+                    startNeckMove(NECK_CENTER_DEG);
+                    Serial.println("[HEAD] neck front");
+                } else if (strcmp(g_serialBuf, "?") == 0 || strcmp(g_serialBuf, "help") == 0) {
+                    Serial.println("[SERIAL] blink | talking | not_talking | left | right | front");
+                } else {
+                    Serial.print("[SERIAL] Unknown: '");
+                    Serial.print(g_serialBuf);
+                    Serial.println("'  (type 'help' for list)");
+                }
+            }
+            g_serialIdx = 0;
+        } else if (g_serialIdx < SERIAL_BUF_MAX - 1) {
+            g_serialBuf[g_serialIdx++] = c;
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 //  Error guard
 // ═══════════════════════════════════════════════════════════════════════════════
 #define RCCHECK(fn) { rcl_ret_t rc = (fn); if (rc != RCL_RET_OK) { errorLoop(); } }
@@ -377,4 +437,5 @@ void loop() {
     updateNeckEasing();
     updateTalkAnimation();
     updateBlink();
+    checkSerial();
 }

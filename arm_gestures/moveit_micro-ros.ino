@@ -39,17 +39,17 @@ CubeMarsCAN<CAN1> leftBus;
 CubeMarsCAN<CAN3> rightBus;
 
 std::vector<CubeMarsMotor> leftArm = {
-  CubeMarsMotor(0x01, leftBus, 6, 4000, 6000),
-  CubeMarsMotor(0x02, leftBus, 6, 4000, 6000),
-  CubeMarsMotor(0x03, leftBus, 6, 4000, 6000),
-  CubeMarsMotor(0x04, leftBus, 6, 4000, 6000),
+  // CubeMarsMotor(0x01, leftBus, 6, 6000, 6000),
+  // CubeMarsMotor(0x02, leftBus, 6, 6000, 6000),
+  // CubeMarsMotor(0x03, leftBus, 6, 6000, 6000),
+  // CubeMarsMotor(0x04, leftBus, 6, 6000, 6000),
 };
 
 std::vector<CubeMarsMotor> rightArm = {
-  CubeMarsMotor(0x05, rightBus, 6, 4000, 6000),
-  CubeMarsMotor(0x06, rightBus, 6, 4000, 6000),
-  CubeMarsMotor(0x01, rightBus, 6, 4000, 6000),
-  CubeMarsMotor(0x02, rightBus, 6, 4000, 6000),
+  CubeMarsMotor(0x05, rightBus, 6, 6000, 6000),
+  CubeMarsMotor(0x06, rightBus, 6, 6000, 6000),
+  CubeMarsMotor(0x01, rightBus, 6, 6000, 6000),
+  CubeMarsMotor(0x02, rightBus, 6, 6000, 6000),
 };
 bool g_originSet = false;   // false until we run setOrigin() once
 
